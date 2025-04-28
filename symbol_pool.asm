@@ -78,14 +78,25 @@ append:					# append(symbol_pool* self, int hashed, matrix* $a2){
 					# // normalize to word size for a pair
 	sll	$t0, $t0, 3		# $t0 *= 8;
 	
-	addi	$t0, $t0, $a0		# // make $t0 the resulting address
+	add	$t0, $t0, $a0		# // make $t0 the resulting address
 					# $t0 = $t0 + $a0;
+	
+	addi	$t0, $t0, 12		# // 12 offset
 
+	sll	$t5, $t3, 3		# // multiply length times 8
+	add	$t5, $a0,$t3		# // add length to address
+	addi	$t5, $t5, 12		# // point to the end address of the list
+
+	CLUSTER_CHECK:
 	lw	$t1, 0($t0)
 
-	CLUSTER_CHECK:			# // check for cluster
 	beq	$t1, $zero, UNCLUSTERED # while($t1 != 0){
 	addi	$t0, $t0, 8		# $t0 += 8;
+	
+	bne	$t0, $t5, CLUSTER_CHECK # if the pointer reaches the end of the list
+
+	addi	$t0, $a0, 12		# reset to start position 
+		
 	j CLUSTER_CHECK			# }
 	UNCLUSTERED:
 	

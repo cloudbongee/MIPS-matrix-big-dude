@@ -35,6 +35,8 @@
 welcome:	.asciiz		"Welcome to a slight matrix demonstration\nMade by Jaime Beilis at the University of Arizona for CSC252"
 choice1:	.asciiz		"\nAre you inputting a [f]ile or [w]riting yourself?: "
 queryfile:	.asciiz		"\nEnter file name : "
+
+symbs:		.word		0
 fname:		.space		282	
 inputBuffer:	.space		50002
 
@@ -43,6 +45,9 @@ inputBuffer:	.space		50002
 # startup, asks for the input of the matrix class
 # arranges the processes that will be followed
 main:
+	# initiate the symbol pool
+	jal	initiate_symbol_pool
+	lw	$v0, symbs
 
 	li	$v0, 4			# // argument for writing strings
 	li	$a0, welcome		# // print a welcome

@@ -11,14 +11,29 @@ if ! dpkg -l | grep binutils-mips-linux-gnu ; then
 else
 	echo "Already exists :-)"
 fi
-
-echo "\n	Assembling matrix.asm...\n"
+echo ""
+echo "		Assembling matrix.asm..."
+echo ""
 mips-linux-gnu-as main.asm -o main.o
-
-echo "\n	Assembling file_reader.asm...\n"
+echo ""
+echo "		Assembling file_reader.asm..."
+echo ""
 mips-linux-gnu-as file_read.asm -o file_read.o
-
-echo "\n	linking all assembled files...\n"
-mips-linux-gnu-ld main.o file_read.o -o matrix
+echo ""
+echo "		Assembling object.asm..."
+echo ""
+mips-linux-gnu-as object.asm -o object.o
+echo ""
+echo "		Assembling parse.asm..."
+echo ""
+mips-linux-gnu-as parse.asm -o parse.o
+echo ""
+echo "		Assembling symbol_pool.asm..."
+echo ""
+mips-linux-gnu-as symbol_pool.asm -o symbol_pool.o
+echo ""
+echo "		Linking all assembled files..."
+echo ""
+mips-linux-gnu-ld main.o file_read.o symbol_pool.o parse.o object.o -o matrix
 
 

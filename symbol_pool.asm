@@ -66,7 +66,7 @@ initiate_symbol_pool:
 	jr	$ra
 	
 # // $a0 will pass the address of the pool, $a1 passes the hashed integer, $a2 will pass the address for the matrix
-append:					# append(symbol_pool* self, int hashed, matrix* $a2){
+append_symbol:				# append(symbol_pool* self, int hashed, matrix* $a2){
 	addiu	$sp, $sp, -8		# // epilogue
 	sw	$ra, 4($sp)
 	sw	$fp, 0($sp)

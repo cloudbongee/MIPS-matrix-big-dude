@@ -112,10 +112,10 @@ intString_to_int:
 # as separated by a comma, it also has a sequence that parses strings to integers
 initiate_matrix:
 	
-	addiu	$sp, $sp, -8		# // prologue
+	addiu	$sp, $sp, -12		# // prologue
 	sw	$ra, 4($sp)
 	sw	$fp, 0($sp)
-	addiu	$fp, $sp, 4
+	addiu	$fp, $sp, 8
 
 	li	$t0, '['
 	li	$t1, ']'
@@ -162,9 +162,23 @@ initiate_matrix:
 	# transform to an int value, allocate space in memory in which the integer is appended
 	# (currently using row major form)
 	
+	lw	$t3, ReadingRow 
+	beq	$t3, $zero, DONTALLOCATE
+	
+	sw	$a0, 8($sp)
+	la	$a0, elementBuffer
+
+	# convert to integer
+	jal	intString_to_int
+
+	# TODO: ALLOCATE MEMORY, PUT IT IN A WORD THAT STORES THE ADDRESS
+	# CHECK THAT SUCH WORD EXISTS. IF EXISTS ADD ONE WORD AND THROW THE INT
+	# ELSE, MAKE NEW MEMORY ADD WORD, DECLARE DATA SEGMENT WORD
+
+	DONTALLOCATE:
 
 	# restart the counter
-	sw	$zero	ElementBuffer
+	sw	$zero	ElementBufferCounter
 	
 	# case 2: it is a comma and reding row is closed. This one can be ignored.
 	# The row major form permits us a lot of flexibility with such a small charset
@@ -186,12 +200,20 @@ initiate_matrix:
 
 	beq	$t3, $zero, SKIPCHAR
 	
-	// TODO:
-	// add char to buffer, increment counter
-	// edit the function that makes numbers into ints
-	// to count using such memory structure
+	la	$t3, ElementBuffer	# grab buffer space
+	lw	$t4, ElementBufferCounter # grab counter
 	
+	add	$t3, $t3, $t4
+	sb	$s3, 0($t3)
+
+	addi	$t4, $t4, 1		# augment the counter
+	lw	$t4, ElementBufferCounter
+
+	addi	$t3, $t3, 1		# add an argument forward that nullifies the iteration when converting into integer
+	sb	$zero, 0($t3)		
+
 	SKIPCHAR:
+
 	
 					# }
 

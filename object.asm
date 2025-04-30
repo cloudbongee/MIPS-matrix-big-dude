@@ -1,6 +1,33 @@
 
 #	obj.asm
 #	from MIPS_MATRIX
+#	Probably the most important file here,
+#	sadly it can be totally redone with a lot more optimization
+# 	but I am kind of rushing this one due to finals, amongst other
+#	situations on a time constraint.
+#	Please, spare the comments
+
+#	NOTE:
+#	I am currently introducing a very flexible syntax.
+#	That is, a mistake in writing a matrix (say [[1,2, _3], o[...]... ])
+#	wouldn't really make that much of a difference, as my current parsing method
+# 	is based on filtering a very limited set of ascii characters.
+#	On a real implementation, this is unallowable, and should require penalizing on runtime
+#	compilation / interpretation.
+
+
+.data
+
+// make a buffer that reads each element
+ElementBuffer:	.space	50
+// instead of trash collecting every time
+// a counter is imposed to iterate on each 
+// elements
+ElementBufferCounter:
+		.word	0
+
+ReadingMatrix:	.word 	0
+ReadingRow:	.word 	0 
 
 .text
 
@@ -80,7 +107,7 @@ intString_to_int:
 	addiu	$sp, $sp, 12
 	jr	$ra
 
-# after passed  a string address 0, it initiates a matrix on the first
+# after passed  a string address a0, it initiates a matrix on the first
 # [, then makes a row on the starting [ of the elements. adding an element
 # as separated by a comma, it also has a sequence that parses strings to integers
 initiate_matrix:
@@ -95,11 +122,88 @@ initiate_matrix:
 	li	$t2, ','
 	
 	ITERATE_STRING:
+	lb	$s3, 0($a0)
+
+	bne	$s3, $t0, NOTOPEN	# if($s3 == '['){
+	
+	lw	$t3, ReadingMatrix
+	beq	$t3, $zero, MATRIX_OPENED	# if matrix was opened before
+
+	li	$t3, 1
+	sw	$t3, ReadingRow			# make reading row true
+	
+	MATRIX_OPENED:
+
+	li	$t3, 1
+	sw	$t3, ReadingMatrix	# // now elements are not ignored
+
+	
+	j THENCHAR
+
+	NOTOPEN:			# }
+
+
+	bne	$s3, $t1, NOTCLOSE	# if($s3 == ']'){
+
+	lw	$t3, ReadingRow		
+
+	sw	$zero, ReadingRow	# in whichever of both cases, row reading will be closed
+
+	beq	$t3, $zero, EXIT_SEQUENCE:
+	# If Reading row is true is false and a closing has been found, then it is go time
+	# else 
+	
+	NOTCLOSE:			# }
+
+
+	bne	$s3, $t2, THENCHAR	# if(#s4 == ','){
+
+	# case 1: it is a comma and reading row is open, then add number to buffer
+	# transform to an int value, allocate space in memory in which the integer is appended
+	# (currently using row major form)
 	
 
+	# restart the counter
+	sw	$zero	ElementBuffer
+	
+	# case 2: it is a comma and reding row is closed. This one can be ignored.
+	# The row major form permits us a lot of flexibility with such a small charset
+
+	THENCHAR:			# } else{
+	# finally, do the else case. 
+	# that would be, if it exists within the range of numerical input
+	# and it exists within row read we add 1 to the counter, load on the space
+	# allocated
+	
+	li	$t3, 29
+	slt	$t4, $t3, $s4
+	li	$t3, 40
+	slt	$t3, $s4, $t3
+	and	$t3, $t3, $t4
+
+	lw	$t4, ReadingRow
+	and	$t3, $t3, $t4
+
+	beq	$t3, $zero, SKIPCHAR
+	
+	// TODO:
+	// add char to buffer, increment counter
+	// edit the function that makes numbers into ints
+	// to count using such memory structure
+	
+	SKIPCHAR:
+	
+					# }
+
+	addi	$a0, $a0, 1
 	j ITERATE_STRING
 	END_ITERATE_STRING:
 	
+
+
+	EXIT_SEQUENCE:
+	sw	$zero, ReadingMatrix
+
 	lw	$ra, 4($sp)		# // epilogue
 	lw	$fp, 0($sp)
 	addiu	$sp, $sp, 8

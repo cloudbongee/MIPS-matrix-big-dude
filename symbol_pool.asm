@@ -15,10 +15,7 @@
 
 
 .data
-
-
-prime_table_sizes:
-			.word 401	
+	
 symbol_pool_functions:
 			.word append_symbol
 
@@ -41,7 +38,7 @@ initiate_symbol_pool:
 	syscall
 					# // $v0 gets some allocated space
 	move	$t0, $zero		# int $t0 = 0;
-	li	$t1, 436		# int $t1 = 436;
+	li	$t1, 436		# int $t1 = 436; 
 	move	$t2, $v0		# symbol_pool* $t2 = $v0
 	
 	
@@ -58,6 +55,9 @@ initiate_symbol_pool:
 	
 	la	$t0, symbol_pool_functions
 	sw	$t0, 0($v0)		# $t2[0] = *functions;
+
+	li	$t0, 53			# $t2[1[ = 53; // bytes
+	sw	$t0, 4($v0)
 	
 	
 	lw	$ra, 4($sp)		# // prologue

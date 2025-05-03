@@ -1,3 +1,6 @@
+# 	THIS IS MY SUBMISSION FILE
+# 	FOR ASM 6
+# 	TEST WITH OBJECT_TEST.ASM
 
 #	obj.asm
 #	from MIPS_MATRIX
@@ -18,7 +21,9 @@
 
 
 .data
-
+# // keep count of the number of elements
+ElementNo:	.word 0
+ElementNoWord:  .word 0
 # // make a buffer that reads each element
 ElementBuffer:	.space	50
 # // instead of trash collecting every time
@@ -33,9 +38,11 @@ ReadingRow:	.word 	0
 MatrixAddressTemp:
 		.word	0
 
-# // store row and column length for matrices
+# // TODO: store row and column length for matrices
 RowLength:	.word   0
 ColumnLength:	.word	0
+
+debug:		.asciiz "You might want to reconsider that which you are doing"
 
 # NOTE: 
 # the current method I am using permits for an input like this
@@ -46,20 +53,24 @@ ColumnLength:	.word	0
 
 .text
 
+# it takes an argument $a0 containing the address of space , assummed separated as bytes, and converts
+# into integer for the ascii values ['0'-'9']
 .globl intString_to_int
 
+# creates a matrix object in the memory heap from a given input address $a0;
+# returns the starting heap address of the Matrix generated. (Row major form)
 .globl initiate_matrix
 
-
+# iterates a string with an integer written in decimal form to make it an actual value
 intString_to_int:
 	
-	addiu	$sp, $sp, -12		# // prologue
+	addiu	$sp, $sp, -16		# // prologue
 	sw	$ra, 4($sp)
 	sw	$fp, 0($sp)
-	addiu	$fp, $sp, 8
+	addiu	$fp, $sp, 12
 
-	li	$t5, 29
-	li	$t6, 40
+	li	$t5, 47
+	li	$t6, 58
 	move	$t9, $zero		# $t9 = 0; // counter for position
 	sw	$a0, 8($sp)		# // store argument
 	COUNT_INTEGER_POSITIONS:
@@ -82,7 +93,8 @@ intString_to_int:
 	li	$t7, 1
 	li	$t4, 10			# // numbers will be multiplied by a power of 10
 					# // such that 
-					# // (asciival - 30) * 10^i where i:= $t9;
+					# // (asciival - 30) * 10^(i-1) where i:= $t9;
+	addi	$t9, $t9, -1
 	move	$s0, $t9
 
 	POW:				# // naive exponentation. It sucks but I need to cut a huge corner here
@@ -104,7 +116,7 @@ intString_to_int:
 
 	beq	$t8, $zero, END_TRANSFORM
 	
-	addi	$s4, $s4, -30		# $s4 -= 30 ;// normalize character
+	addi	$s4, $s4, -48		# $s4 -= 48 ;// normalize character
 	mul	$s4, $s4, $s0		# $s4 *= $s0;// multiply 
 	add	$v0, $v0, $s4		# $v0 += $s4;// add to result
 
@@ -119,7 +131,7 @@ intString_to_int:
 
 	lw	$ra, 4($sp)		# // epilogue
 	lw	$fp, 0($sp)
-	addiu	$sp, $sp, 12
+	addiu	$sp, $sp, 16
 	jr	$ra
 
 # after passed  a string address a0, it initiates a matrix on the first
@@ -127,19 +139,24 @@ intString_to_int:
 # as separated by a comma, it also has a sequence that parses strings to integers
 initiate_matrix:
 	
-	addiu	$sp, $sp, -12		# // prologue
+	addiu	$sp, $sp, -16		# // prologue
 	sw	$ra, 4($sp)
 	sw	$fp, 0($sp)
-	addiu	$fp, $sp, 8
+	addiu	$fp, $sp, 12
 
+	sw	$a0, 8($sp)
 	li	$t0, '['		# $t0 = '[';
 	li	$t1, ']'		# $t1 = ']';
 	li	$t2, ','		# $t2 = ',';
 	
+	move	$s6, $a0		# $s6 = *$a0
+	
 	ITERATE_STRING:			# for(int i = 0; i < string length; i++){
 
-	lb	$s3, 0($a0)		# $s3 = $a0[i]
-
+	lb	$s3, 0($s6)		# $s3 = $a0[i]
+	
+	# move	$a0, $t3
+	
 	bne	$s3, $t0, NOTOPEN	# if($s3 == '['){
 	
 	lw	$t3, ReadingMatrix		# $t3 = ReadingMatrix;
@@ -158,10 +175,11 @@ initiate_matrix:
 
 	NOTOPEN:			# }
 
-
 	bne	$s3, $t1, NOTCLOSE	# else if($s3 == ']'){
 
 	lw	$t3, ReadingRow		# $t3 = ReadingRow;
+	
+	# TODO: COUNT DIMENSIONS
 
 	sw	$zero, ReadingRow	# // in whichever of both cases, row reading will be closed
 
@@ -172,116 +190,187 @@ initiate_matrix:
 	NOTCLOSE:			# }
 
 
+
+
+	# COMMA SECTION ~~~~~~ Handle with care, logic here is very delicate
+	
+	
 	bne	$s3, $t2, THENCHAR	# if(#s4 == ','){
 
 	# case 1: it is a comma and reading row is open, then add number to buffer
 	# transform to an int value, allocate space in memory in which the integer is appended
 	# (currently using row major form)
 	
-	lw	$t3, ReadingRow 
-					# if($t3 != 0){
-	beq	$t3, $zero, DONTALLOCATE
+	lw	$t3, ReadingRow 		# $t3 = ReadingRow;
 	
-	sw	$a0, 8($sp)		# // save the first argument
-	la	$a0, elementBuffer	# $a0 = elementBuffer;
-
-	lw	$t3, elementBufferCounter# $t3 = elementBufferCounter;
-	beq	$t3, $zero, PADDING	# if($t3 == 0){
+						# if($t3 != 0){
+	beq	$t3, $zero, DONTALLOCATE	# // if reading the row then do:
+	
+	# sw	$s6, 8($sp)			# 	// save the first argument
+	la	$a0, ElementBuffer		# 	$a0 = elementBuffer;
+	lw	$t3, ElementBufferCounter	# 	$t3 = elementBufferCounter;
+	
+						# // subcase, the counter length is 0, that means the
+						# // characters were not read and we pad by passing
+						# // a value 0
+						
+	beq	$t3, $zero, PADDING		# 	if($t3 == 0){
 
 	# convert to integer
-	jal	intString_to_int
-
-	# TODO: ALLOCATE MEMORY, PUT IT IN A WORD THAT STORES THE ADDRESS
-	# CHECK THAT SUCH WORD EXISTS. IF EXISTS ADD ONE WORD AND THROW THE INT,
-	# ELSE, MAKE NEW MEMORY ADD WORD, DECLARE DATA SEGMENT WORD
-
-	move	$t3, $v0	# $t3 = intString_to_int(*elementBuffer) // the integer value read from the string is passed to $t3
 	
-	j DOALLOC		# // DO ALLOCATE
-	PADDING:		# } // If the counter is 0, then pad the mistake and allocate a value of 0
+	# sw	$a0, 12($sp)
+	move	$s7, $s3
+	jal	intString_to_int	# // returns the result from converting a set of characters into an integer value
+	move	$t3, $v0		# $t3 = intString_to_int(*elementBuffer); // the integer value read from the string is passed to $t3
+	move	$s3, $s7
+	# lw	$a0, 12($sp)
 	
+	j DOALLOC		# goto DOALLOC; // DO ALLOCATE, skip the padding process
+	
+	PADDING:		# }
+	
+				# // If the counter is 0, then pad the mistake and allocate a value of 0
 	move	$t3, $zero	# $t3 = 0;
 
 	DOALLOC:		# DOALLOC: // 
+	
+	
+	# move	$t4, $a0	# $t4 = $a0;
+	
+	addiu	$sp, $sp, -4
+	lw	$s4, ElementNoWord
+	addi	$s4, $s4, 4
+	sw	$s4, ElementNoWord
+	lw	$s4, ElementNo
+	addi	$s4, $s4, 1
+	sw	$s4, ElementNo
+	sw 	$t3, 0($sp)
+	
+	
+	DONTALLOCATE:
 
-	li	$v0, 9		# // pass to heap memory, it is assumed to be contiguous here, I know MIPS and SPIM, as well as the Linux architecture
-	li	$a0, 4		# // will in fact allocate contiguous memory, but the not lazy procedure to this would be to pass the matrix to the
-	syscall			# // stack memory instead, and at the end of the procedure, allocating for all together
-				# keeping that as a TODO
-
-				# pressumably, elf64 (for which I'm assembling, brk() calls should 
-				# be able to allocate contiguous memory, so the matrix should be continous)
-				# Here I am checking if the matrixAddress has been already allocated or not
-	lw	$t3, 0($v0)
-	lw	$t3, MatrixAddressTemp
-
-				# if($t3 != 0){
-	beq	$t3, $zero, DONTALLOCATE
-
-	sw	$v0, MatrixAddressTemp
-				# MatrixAddressTemp = $v0;
-				# }
-
-	DONTALLOCATE:		# }
-
-				# restart the counter
+				# // now the value has passed, meaning that we can restart the counter
 	sw	$zero,	ElementBufferCounter
+				
+				# // case 2: it is a comma and reding row is closed. This one can be ignored.
+				# // The row major form permits us a lot of flexibility with such a small charset
+				
+	j  SKIPCHAR		# // now we skip.
 	
-				# case 2: it is a comma and reding row is closed. This one can be ignored.
-				# The row major form permits us a lot of flexibility with such a small charset
-	
-	THENCHAR:			# } else{
+	THENCHAR:		# } else{
 
 				# finally, do the else case. 
 				# that would be, if it exists within the range of numerical input
 				# and it exists within row read we add 1 to the counter, load on the space
 				# allocated
 	
-	li	$t3, 29
-	slt	$t4, $t3, $s4
-	li	$t3, 40
-	slt	$t3, $s4, $t3
-	and	$t3, $t3, $t4
+	li	$t3, 47
+	slt	$t4, $t3, $s3
+	li	$t3, 58
+	slt	$t3, $s3, $t3
+	and	$t3, $t3, $t4		# // conditions to make sure that
+					# // '0' <=  $s3 <= '9' respectively
 
-	lw	$t4, ReadingRow
-	and	$t3, $t3, $t4		# if(ReadingRow && isChar($t3)){
+	lw	$t4, ReadingRow		# // if the int is true and we are reading a row, then we add to the buffer
+	and	$t3, $t3, $t4		# if(ReadingRow && isInt($t3)){
 
-	beq	$t3, $zero, SKIPCHAR
+	beq	$t3, $zero, SKIPCHAR	# if($t3 != 0){
 	
 	la	$t3, ElementBuffer		# $t3 = *ElementBuffer; // grab buffer space
+	
 	lw	$t4, ElementBufferCounter 	# $t4 = ElementBufferCounter; // grab counter
 	
 	add	$t3, $t3, $t4			# $t3 += $t4; // current position of the character element
+	
 	sb	$s3, 0($t3)			# ElementBuffer[$t3 + $t4] = $s3 // read byte is loaded into the buffer 
 
 	addi	$t4, $t4, 1			# // augment the counter
-	lw	$t4, ElementBufferCounter	# ElementBufferCounter++;
+	sw	$t4, ElementBufferCounter	# ElementBufferCounter++;
 
-					# // WARNING: This currently assumes no integer is greater than the buffer length!!that is, intLength < 50
 
+
+					# // WARNING: This currently assumes no integer is greater than the buffer length!!that is,
+					# // intLength < 50
+					# // One would have to make this also a stack operation.
+					
 	addi	$t3, $t3, 1		# // add an argument forward that nullifies the iteration when converting into integer
-	sb	$zero, 0($t3)		# // store a 0 forward so it breaks the loop when converting to integer:	
+	sb	$zero, 0($t3)		# // store a 0 forward so it breaks the loop when converting to integer:
+
 
 	SKIPCHAR:			# }
-
-	
 					# }
+					
+					
 
-	addi	$a0, $a0, 1		# a0 ++;
+	addi	$s6, $s6, 1		# a0 ++;
+	
+	# // debug statement
+	bne	$s3, $zero, ITERATE_STRING
+	move	$t3, $a0
+	la	$a0, debug
+	li	$v0, 4
+	move	$a0, $t3
+	
+	syscall
+	
+	
 	j ITERATE_STRING		# // reiterate
+	
+	
+	
 	END_ITERATE_STRING:
+	EXIT_SEQUENCE:
+	
+	# // sequence to append to heap
+	
+	# counter for loop iteration
+	add	$s0, $zero, $zero
+	
+	# element number load
+	lw	$s1, ElementNo
+	
+	lw	$s4, ElementNoWord
+	# start at an offset of 12
+	addu	$s7, $sp, $s4
+	
+	# pass down the call for heap
+	addi	$v0, $zero, 9
+	
+	# pass down the amount of bytes needed
+	add	$a0, $zero, $s4
+	syscall
+	
+	# copy the returned heap address into $s4
+	add	$s4, $zero, $v0
+	
+	
+	STACK_TO_HEAP:
+	beq	$s0, $s1, EXITSTACKTOHEAP
+	# load from stack store in heap
+	lw	$s3, 0($s7)
+	sw	$s3, 0($s4)
+	
+	# augment the addresses one word
+	addiu	$s7, $s7, -4
+	addi	$s4, $s4, 4
+	# augment the counter for iter
+	addi	$s0, $s0, 1
+	j STACK_TO_HEAP
+	
+	EXITSTACKTOHEAP:
+	
+	# // Reset all fields
+	sw	$zero, ElementNo
+	sw	$zero, ElementBufferCounter
+	sw	$zero, ReadingRow
+	sw	$zero, ReadingMatrix
 	
 
-
-	EXIT_SEQUENCE:
-
-
-	sw	$zero, ReadingMatrix
-
-	# returns the matrix address on start
-	lw	$v0, MatrixAddressTemp
-
+	lw	$t0, ElementNoWord
+	addu	$sp, $sp, $t0
+	
 	lw	$ra, 4($sp)		# // epilogue
 	lw	$fp, 0($sp)
-	addiu	$sp, $sp, 8
+	addiu	$sp, $sp, 16
+
 	jr	$ra

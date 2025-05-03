@@ -21,9 +21,7 @@
 
 
 .data
-# // keep count of the number of elements
-ElementNo:	.word 0
-ElementNoWord:  .word 0
+
 # // make a buffer that reads each element
 ElementBuffer:	.space	50
 # // instead of trash collecting every time
@@ -64,10 +62,10 @@ debug:		.asciiz "You might want to reconsider that which you are doing"
 # iterates a string with an integer written in decimal form to make it an actual value
 intString_to_int:
 	
-	addiu	$sp, $sp, -16		# // prologue
+	addiu	$sp, $sp, -12		# // prologue
 	sw	$ra, 4($sp)
 	sw	$fp, 0($sp)
-	addiu	$fp, $sp, 12
+	addiu	$fp, $sp, 8
 
 	li	$t5, 47
 	li	$t6, 58
@@ -131,7 +129,7 @@ intString_to_int:
 
 	lw	$ra, 4($sp)		# // epilogue
 	lw	$fp, 0($sp)
-	addiu	$sp, $sp, 16
+	addiu	$sp, $sp, 12
 	jr	$ra
 
 # after passed  a string address a0, it initiates a matrix on the first
@@ -139,23 +137,24 @@ intString_to_int:
 # as separated by a comma, it also has a sequence that parses strings to integers
 initiate_matrix:
 	
-	addiu	$sp, $sp, -16		# // prologue
+	addiu	$sp, $sp, -12		# // prologue
 	sw	$ra, 4($sp)
 	sw	$fp, 0($sp)
-	addiu	$fp, $sp, 12
+	addiu	$fp, $sp, 8
 
 	sw	$a0, 8($sp)
 	li	$t0, '['		# $t0 = '[';
 	li	$t1, ']'		# $t1 = ']';
 	li	$t2, ','		# $t2 = ',';
 	
-	move	$s6, $a0		# $s6 = *$a0
-	
 	ITERATE_STRING:			# for(int i = 0; i < string length; i++){
 
-	lb	$s3, 0($s6)		# $s3 = $a0[i]
-	
-	# move	$a0, $t3
+	lb	$s3, 0($a0)		# $s3 = $a0[i]
+	li	$v0, 11
+	move	$t3, $a0
+	move	$a0, $s3
+	syscall
+	move	$a0, $t3
 	
 	bne	$s3, $t0, NOTOPEN	# if($s3 == '['){
 	
@@ -206,7 +205,7 @@ initiate_matrix:
 						# if($t3 != 0){
 	beq	$t3, $zero, DONTALLOCATE	# // if reading the row then do:
 	
-	# sw	$s6, 8($sp)			# 	// save the first argument
+	sw	$a0, 8($sp)			# 	// save the first argument
 	la	$a0, ElementBuffer		# 	$a0 = elementBuffer;
 	lw	$t3, ElementBufferCounter	# 	$t3 = elementBufferCounter;
 	
@@ -217,13 +216,10 @@ initiate_matrix:
 	beq	$t3, $zero, PADDING		# 	if($t3 == 0){
 
 	# convert to integer
-	
-	# sw	$a0, 12($sp)
 	move	$s7, $s3
 	jal	intString_to_int	# // returns the result from converting a set of characters into an integer value
-	move	$t3, $v0		# $t3 = intString_to_int(*elementBuffer); // the integer value read from the string is passed to $t3
+	move	$t3, $v0		# $t3 = intString_to_int(*elementBuffer) // the integer value read from the string is passed to $t3
 	move	$s3, $s7
-	# lw	$a0, 12($sp)
 	
 	j DOALLOC		# goto DOALLOC; // DO ALLOCATE, skip the padding process
 	
@@ -235,19 +231,44 @@ initiate_matrix:
 	DOALLOC:		# DOALLOC: // 
 	
 	
-	# move	$t4, $a0	# $t4 = $a0;
+	move	$t4, $a0	# $t4 = $a0;
 	
-	addiu	$sp, $sp, -4
-	lw	$s4, ElementNoWord
-	addi	$s4, $s4, 4
-	sw	$s4, ElementNoWord
-	lw	$s4, ElementNo
-	addi	$s4, $s4, 1
-	sw	$s4, ElementNo
-	sw 	$t3, 0($sp)
+				# // $v0 = 9 corresponds to sbrk() system call. 
+				
+	li	$v0, 9		# // pass to heap memory, it is assumed to be contiguous here, I know MIPS and SPIM, as well as the Linux architecture
+	li	$a0, 4		# // will in fact allocate contiguous memory, but the not lazy procedure to this would be to pass the matrix to the
+	syscall			# // stack memory instead, and at the end of the procedure, allocating for all together.
+				# // reason I didn't implement that way is fearing $sp errors
+				# // in a program I have worked only for a few.
+				# sbrk();
+				
+				# // keeping that as a TODO
+	move	$a0, $t4	# $a0 = $t4;
 	
+				# // pressumably, elf64 (for which I'm assembling, brk() calls should 
+				# // be able to allocate contiguous memory, so the matrix should be continous)
+				# // Here I am checking if the matrixAddress has been already allocated or not
+		
+				# // The open word is filled with the correct value
+	lw	$t3, 0($v0)	# &$v0[0] = $t3;
 	
-	DONTALLOCATE:
+	 
+				# $t3 = MatrixAddressTemp;
+				# // this will be 0 if MatrixAddressTemp has not been declared yet
+	lw	$t3, MatrixAddressTemp
+				
+				# if($t3 == 0){
+	bne	$t3, $zero, DONTALLOCATE
+				
+				# // if $t3 == 0 it implies that our matrix address has not been declared
+				# // we declare it here.
+				
+	sw	$v0, MatrixAddressTemp
+				
+				# MatrixAddressTemp = $v0;
+				# }
+
+	DONTALLOCATE:		# }
 
 				# // now the value has passed, meaning that we can restart the counter
 	sw	$zero,	ElementBufferCounter
@@ -302,7 +323,7 @@ initiate_matrix:
 					
 					
 
-	addi	$s6, $s6, 1		# a0 ++;
+	addi	$a0, $a0, 1		# a0 ++;
 	
 	# // debug statement
 	bne	$s3, $zero, ITERATE_STRING
@@ -319,58 +340,20 @@ initiate_matrix:
 	
 	
 	END_ITERATE_STRING:
+	
+
+
 	EXIT_SEQUENCE:
 	
-	# // sequence to append to heap
-	
-	# counter for loop iteration
-	add	$s0, $zero, $zero
-	
-	# element number load
-	lw	$s1, ElementNo
-	
-	lw	$s4, ElementNoWord
-	# start at an offset of 12
-	addu	$s7, $sp, $s4
-	
-	# pass down the call for heap
-	addi	$v0, $zero, 9
-	
-	# pass down the amount of bytes needed
-	add	$a0, $zero, $s4
-	syscall
-	
-	# copy the returned heap address into $s4
-	add	$s4, $zero, $v0
-	
-	
-	STACK_TO_HEAP:
-	beq	$s0, $s1, EXITSTACKTOHEAP
-	# load from stack store in heap
-	lw	$s3, 0($s7)
-	sw	$s3, 0($s4)
-	
-	# augment the addresses one word
-	addiu	$s7, $s7, -4
-	addi	$s4, $s4, 4
-	# augment the counter for iter
-	addi	$s0, $s0, 1
-	j STACK_TO_HEAP
-	
-	EXITSTACKTOHEAP:
-	
 	# // Reset all fields
-	sw	$zero, ElementNo
 	sw	$zero, ElementBufferCounter
 	sw	$zero, ReadingRow
 	sw	$zero, ReadingMatrix
 	
+	# // returns the matrix address on start
+	lw	$v0, MatrixAddressTemp
 
-	lw	$t0, ElementNoWord
-	addu	$sp, $sp, $t0
-	
 	lw	$ra, 4($sp)		# // epilogue
 	lw	$fp, 0($sp)
-	addiu	$sp, $sp, 16
-
+	addiu	$sp, $sp, 8
 	jr	$ra

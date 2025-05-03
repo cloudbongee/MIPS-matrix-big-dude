@@ -40,7 +40,7 @@ file_input:				# void file_input(str& $a0, char* $a1){
 	jr	$ra			# }
 
 
-// takes address of input buffer on $a0, reads input
+# // takes address of input buffer on $a0, reads input
 user_input:				# void user_input(){
 	addiu	$sp, $sp, -12		# // epilogue
 	sw	$ra, 4($sp)
